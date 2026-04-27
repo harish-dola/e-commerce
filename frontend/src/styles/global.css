@@ -307,10 +307,16 @@ img {
   color: #166534;
 }
 
-.cart-layout,
-.checkout-layout {
+.cart-layout {
   display: grid;
   grid-template-columns: 1.5fr 0.9fr;
+  gap: 24px;
+}
+
+.checkout-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 760px);
+  justify-content: center;
   gap: 24px;
 }
 
