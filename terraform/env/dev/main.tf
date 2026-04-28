@@ -4,6 +4,13 @@ terraform {
         version = "~>6.28.0"
     }
   }
+  backend "s3" {
+      bucket         = "ecommerce-dev-bucket-123456789"
+      key            = "ecommerce/terraform.tfstate"
+      region         = "us-east-1"
+      encrypt        = true
+      dynamodb_table = "tf-locks-dev"
+    }
 }
 
 provider "aws" {
