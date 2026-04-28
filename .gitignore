@@ -10,3 +10,8 @@ frontend/dist/
 # Local environment files
 backend/.env
 frontend/.env
+
+#terraform
+**/.terraform/
+*.tfstate*
+.tfvars
