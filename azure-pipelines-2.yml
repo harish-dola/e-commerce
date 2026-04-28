@@ -33,7 +33,7 @@ stages:
             provider: 'aws'
             command: 'init'
             workingDirectory: '$(working_dir)'
-            backendServiceAWS: 'aws-service-connection'
+            backendServiceAWS: 'aws-terraform-connection'
             backendAWSBucketName: 'ecommerce-dev-bucket-123456789'
             backendAWSKey: 'ecommerce/terraform.tfstate'
             
@@ -45,7 +45,7 @@ stages:
             provider: 'aws'
             command: 'plan'
             workingDirectory: '$(working_dir)'
-            environmentServiceNameAWS: 'aws-service-connection'
+            environmentServiceNameAWS: 'aws-terraform-connection'
             commandOptions: '-var="db_password=$(DB_PASSWORD)"'
 
         # 3. Apply Changes
@@ -55,5 +55,5 @@ stages:
             provider: 'aws'
             command: 'apply'
             workingDirectory: '$(working_dir)'
-            environmentServiceNameAWS: 'aws-service-connection'
+            environmentServiceNameAWS: 'aws-terraform-connection'
             commandOptions: '-auto-approve -var="db_password=$(DB_PASSWORD)"'
