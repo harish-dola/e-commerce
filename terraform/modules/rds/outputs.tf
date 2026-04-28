@@ -3,3 +3,9 @@ output "db_instance_endpoint" {
     value = module.db.db_instance_endpoint
   
 }
+
+output "db_instance_id" {
+    description = "The ID of the RDS instance"
+    value = module.db.db_instance_resource_id
+  
+}

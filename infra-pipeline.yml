@@ -4,7 +4,7 @@
 # https://aka.ms/yaml
 
 trigger:
-  branches:
+  paths:
     include:
       - terraform/* 
 
@@ -13,7 +13,7 @@ pool: self-hosted
 variables:
   - group: terraform-secrets
   - name: working_dir
-    value: '$(System.DefaultWorkingDirectory)/terraform'
+    value: '$(System.DefaultWorkingDirectory)/terraform/env/dev'
 
 stages:  
   - stage: Terraform_Infrastructure
@@ -38,22 +38,32 @@ stages:
             backendAWSKey: 'ecommerce/terraform.tfstate'
             
 
-        # 2. Generate Plan
+        # # 2. Generate Plan
+        # - task: TerraformTaskV4@4
+        #   displayName: 'Terraform Plan'
+        #   inputs:
+        #     provider: 'aws'
+        #     command: 'plan'
+        #     workingDirectory: '$(working_dir)'
+        #     environmentServiceNameAWS: 'aws-terraform-connection'
+        #     commandOptions: '-var="db_password=$(DB_PASSWORD)"'
+
+        # # 3. Apply Changes
+        # - task: TerraformTaskV4@4
+        #   displayName: 'Terraform Apply'
+        #   inputs:
+        #     provider: 'aws'
+        #     command: 'apply'
+        #     workingDirectory: '$(working_dir)'
+        #     environmentServiceNameAWS: 'aws-terraform-connection'
+        #     commandOptions: '-auto-approve -var="db_password=$(DB_PASSWORD)"'
+
+        # 3. Destroy Plan
         - task: TerraformTaskV4@4
           displayName: 'Terraform Plan'
           inputs:
             provider: 'aws'
-            command: 'plan'
+            command: 'destroy'
             workingDirectory: '$(working_dir)'
             environmentServiceNameAWS: 'aws-terraform-connection'
             commandOptions: '-var="db_password=$(DB_PASSWORD)"'
-
-        # 3. Apply Changes
-        - task: TerraformTaskV4@4
-          displayName: 'Terraform Apply'
-          inputs:
-            provider: 'aws'
-            command: 'apply'
-            workingDirectory: '$(working_dir)'
-            environmentServiceNameAWS: 'aws-terraform-connection'
-            commandOptions: '-auto-approve -var="db_password=$(DB_PASSWORD)"'

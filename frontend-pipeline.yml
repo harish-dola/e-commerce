@@ -1,0 +1,49 @@
+trigger:
+  paths:
+    include:
+      - frontend/*
+
+pool: self-hosted
+
+variables:
+  # Replace with your actual ECR Repository Name
+  Name: 'frontend' 
+  imageTag: '$(Build.BuildId)'
+
+stages:
+  - stage: BuildAndPush
+    displayName: "Build and Push Frontend"
+    jobs:
+      - job: Docker_Process
+        displayName: "Docker Build and ECR Push"
+        steps:
+          # 1. Build the image locally on the agent
+          - script: |
+              cd frontend
+              docker build -t $(Name):$(imageTag) .
+            displayName: "Build Docker Image"
+
+          # 2. Push to ECR using the AWS Task
+          # This task handles the 'docker login' and 'docker push' logic for you
+
+          # # Alternative if the first one fails
+          # - task: SecretsManagerGetSecret@1
+          #   inputs:
+          #     awsCredentials: 'aws-service-connection'
+          #     regionName: 'us-east-1'
+          #     secretIdOrName: 'ecommerce-dev-metadata'
+          #     variableName: 'infra_raw_secret' # Add this line
+
+          - task: ECRPushImage@1
+            displayName: "Push to Amazon ECR"
+            inputs:
+              awsCredentials: 'aws-service-connection'
+              regionName: 'us-east-1'
+              imageSource: 'imageName'
+              sourceImageName: '$(Name)'
+              sourceImageId: '$(Name):$(imageTag)'
+              sourceImageTag: '$(imageTag)'
+              repositoryName: 'ecommerce/frontend'
+              pushTag: '$(imageTag)'
+
+          
