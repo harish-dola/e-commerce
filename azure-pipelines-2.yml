@@ -1,0 +1,59 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+  branches:
+    include:
+      - terraform/* 
+
+pool: self-hosted
+
+variables:
+  - group: terraform-secrets
+  - name: working_dir
+    value: '$(System.DefaultWorkingDirectory)/terraform'
+
+stages:  
+  - stage: Terraform_Infrastructure
+    displayName: 'Deploy AWS Resources'
+    jobs:
+      - job: Terraform_Apply
+        displayName: 'Terraform Init, Plan & Apply'
+        steps:
+        - task: TerraformInstaller@1
+          inputs:
+            terraformVersion: 'latest'
+
+        # 1. Initialize with S3 Backend
+        - task: TerraformTaskV4@4
+          displayName: 'Terraform Init'
+          inputs:
+            provider: 'aws'
+            command: 'init'
+            workingDirectory: '$(working_dir)'
+            backendServiceAWS: 'aws-service-connection'
+            backendAWSBucketName: 'ecommerce-dev-bucket-123456789'
+            backendAWSKey: 'ecommerce/terraform.tfstate'
+            
+
+        # 2. Generate Plan
+        - task: TerraformTaskV4@4
+          displayName: 'Terraform Plan'
+          inputs:
+            provider: 'aws'
+            command: 'plan'
+            workingDirectory: '$(working_dir)'
+            environmentServiceNameAWS: 'aws-service-connection'
+            commandOptions: '-var="db_password=$(DB_PASSWORD)"'
+
+        # 3. Apply Changes
+        - task: TerraformTaskV4@4
+          displayName: 'Terraform Apply'
+          inputs:
+            provider: 'aws'
+            command: 'apply'
+            workingDirectory: '$(working_dir)'
+            environmentServiceNameAWS: 'aws-service-connection'
+            commandOptions: '-auto-approve -var="db_password=$(DB_PASSWORD)"'
