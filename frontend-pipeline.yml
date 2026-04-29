@@ -26,13 +26,17 @@ stages:
           # 2. Push to ECR using the AWS Task
           # This task handles the 'docker login' and 'docker push' logic for you
 
-          # # Alternative if the first one fails
-          # - task: SecretsManagerGetSecret@1
-          #   inputs:
-          #     awsCredentials: 'aws-service-connection'
-          #     regionName: 'us-east-1'
-          #     secretIdOrName: 'ecommerce-dev-metadata'
-          #     variableName: 'infra_raw_secret' # Add this line
+          # Alternative if the first one fails
+          - task: SecretsManagerGetSecret@1
+            inputs:
+              awsCredentials: 'aws-service-connection'
+              regionName: 'us-east-1'
+              secretIdOrName: 'ecommerce-dev-metadata'
+              variableName: 'infra_raw_secret' # Add this line
+
+          - script: |
+              echo "$(db_instance_id)";
+            
 
           - task: ECRPushImage@1
             displayName: "Push to Amazon ECR"
@@ -47,3 +51,23 @@ stages:
               pushTag: '$(imageTag)'
 
           
+  - stage: DeployToECS
+    displayName: "Deploy to Amazon ECS"
+    dependsOn: BuildAndPush
+    condition: succeeded()
+    jobs:
+      - job: Update_ECS_Service
+        displayName: "Update ECS Service"
+        steps:
+          # This task updates the service to pull the new image tag
+          - task: AWSCLI@1
+            displayName: "Update ECS Service via CLI"
+            inputs:
+              awsCredentials: 'aws-service-connection'
+              regionName: 'us-east-1'
+              awsCommand: 'ecs'
+              awsSubCommand: 'update-service'
+              addCustomArgs: |
+                --cluster production-cluster \
+                --service my-app-service \
+                --force-new-deployment
