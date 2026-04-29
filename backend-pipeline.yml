@@ -1,9 +1,3 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
-
 trigger:
   branches:
     include:
@@ -12,7 +6,7 @@ trigger:
 pool: self-hosted
 
 variables:
-- group: backend   # 👈 IMPORTANT (env vars here)
+- group: backend
 
 - name: imageName
   value: backend
@@ -37,21 +31,19 @@ stages:
 # BUILD & PUSH
 # =========================
 - stage: BuildAndPush
-  displayName: 'Backend Build & Push'
   jobs:
   - job: Docker_Process
     steps:
-
     - script: docker system prune -af
-      displayName: "Clean Docker"
+      displayName: Clean Docker
 
     - script: |
         cd backend
         docker build -t $(imageName):$(imageTag) .
-      displayName: "Build Docker Image"
+      displayName: Build Image
 
     - task: ECRPushImage@1
-      displayName: "Push to Amazon ECR"
+      displayName: Push to ECR
       inputs:
         awsCredentials: 'aws-service-connection'
         regionName: '$(awsRegion)'
@@ -66,80 +58,69 @@ stages:
 # DEPLOY
 # =========================
 - stage: DeployToECS
-  displayName: "Deploy Backend to ECS"
   dependsOn: BuildAndPush
-  condition: succeeded()
   jobs:
   - job: Deploy
     steps:
 
-    # ✅ Fetch task definition (WITH credentials + region)
+    # ✅ Fetch task definition safely
     - task: AWSCLI@1
-      displayName: "Configure AWS Credentials"
+      name: FetchTaskDef
+      displayName: Fetch Task Definition
       inputs:
         awsCredentials: 'aws-service-connection'
         regionName: '$(awsRegion)'
-        awsCommand: 'sts'
-        awsSubCommand: 'get-caller-identity'
+        awsCommand: ecs
+        awsSubCommand: describe-task-definition
+        awsArguments: '--task-definition $(taskDefinitionName) --query taskDefinition'
 
+    # ✅ Modify JSON safely
     - powershell: |
-        aws ecs describe-task-definition `
-          --task-definition $(taskDefinitionName) `
-          --region $(awsRegion) > taskdef.json
-      displayName: "Fetch Task Definition JSON"
-
-      
-    - script: type taskdef.json
-      displayName: "Debug Task Definition JSON"
-
-
-    # ✅ Modify task definition
-    - powershell: |
-        $taskDef = Get-Content taskdef.json | ConvertFrom-Json
-        $td = $taskDef.taskDefinition
+        $json = '$(FetchTaskDef.AwsCliOutput)'
+        $td = $json | ConvertFrom-Json
 
         # Update image
         $td.containerDefinitions[0].image = "$(awsAccountId).dkr.ecr.$(awsRegion).amazonaws.com/$(repositoryName):$(imageTag)"
 
         # Inject env vars
         $td.containerDefinitions[0].environment = @(
-            @{ name="DATABASE_URL"; value="$(DATABASE_URL)" },
-            @{ name="SECRET_KEY"; value="$(SECRET_KEY)" },
-            @{ name="ACCESS_TOKEN_EXPIRE_MINUTES"; value="$(ACCESS_TOKEN_EXPIRE_MINUTES)" },
-            @{ name="CORS_ORIGINS"; value="$(CORS_ORIGINS)" }
+          @{ name="DATABASE_URL"; value="$(DATABASE_URL)" },
+          @{ name="SECRET_KEY"; value="$(SECRET_KEY)" },
+          @{ name="ACCESS_TOKEN_EXPIRE_MINUTES"; value="$(ACCESS_TOKEN_EXPIRE_MINUTES)" },
+          @{ name="CORS_ORIGINS"; value="$(CORS_ORIGINS)" }
         )
 
-        # Clean JSON
-        $cleanTaskDef = @{
-            family = $td.family
-            networkMode = $td.networkMode
-            containerDefinitions = $td.containerDefinitions
-            requiresCompatibilities = $td.requiresCompatibilities
-            cpu = $td.cpu
-            memory = $td.memory
-            executionRoleArn = $td.executionRoleArn
-            taskRoleArn = $td.taskRoleArn
+        # Clean object (AWS requires minimal fields)
+        $clean = @{
+          family = $td.family
+          networkMode = $td.networkMode
+          containerDefinitions = $td.containerDefinitions
+          requiresCompatibilities = $td.requiresCompatibilities
+          cpu = $td.cpu
+          memory = $td.memory
+          executionRoleArn = $td.executionRoleArn
+          taskRoleArn = $td.taskRoleArn
         }
 
-        $cleanTaskDef | ConvertTo-Json -Depth 100 | Out-File new-taskdef.json
-      displayName: "Update Task Definition"
+        $clean | ConvertTo-Json -Depth 100 | Out-File new-taskdef.json
+      displayName: Update Task Definition
 
     # ✅ Register new revision
     - task: AWSCLI@1
-      displayName: "Register Task Definition"
+      displayName: Register Task Definition
       inputs:
         awsCredentials: 'aws-service-connection'
         regionName: '$(awsRegion)'
-        awsCommand: 'ecs'
-        awsSubCommand: 'register-task-definition'
+        awsCommand: ecs
+        awsSubCommand: register-task-definition
         awsArguments: '--cli-input-json file://new-taskdef.json'
 
-    # ✅ Deploy new revision
+    # ✅ Deploy
     - task: AWSCLI@1
-      displayName: "Update ECS Service"
+      displayName: Update ECS Service
       inputs:
         awsCredentials: 'aws-service-connection'
         regionName: '$(awsRegion)'
-        awsCommand: 'ecs'
-        awsSubCommand: 'update-service'
+        awsCommand: ecs
+        awsSubCommand: update-service
         awsArguments: '--cluster $(clusterName) --service $(serviceName) --force-new-deployment'
