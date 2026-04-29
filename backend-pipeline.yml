@@ -1,5 +1,5 @@
 trigger:
-  branches:
+  paths:
     include:
       - backend/*
 
