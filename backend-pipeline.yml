@@ -75,25 +75,27 @@ stages:
 
     # ✅ Fetch task definition (WITH credentials + region)
     - task: AWSCLI@1
-      name: FetchTaskDef
       displayName: "Fetch Task Definition"
       inputs:
         awsCredentials: 'aws-service-connection'
         regionName: '$(awsRegion)'
         awsCommand: 'ecs'
         awsSubCommand: 'describe-task-definition'
-        awsArguments: '--task-definition $(taskDefinitionName)'
+        awsArguments: '--task-definition $(taskDefinitionName) > taskdef.json'
 
+    - script: type taskdef.json
+      displayName: "Debug Task Definition JSON"
+
+      
     # ✅ Modify task definition
     - powershell: |
-        $json = '$(FetchTaskDef.AwsCliOutput)'
-        $taskDef = $json | ConvertFrom-Json
+        $taskDef = Get-Content taskdef.json | ConvertFrom-Json
         $td = $taskDef.taskDefinition
 
-        # 🔥 Update image
+        # Update image
         $td.containerDefinitions[0].image = "$(awsAccountId).dkr.ecr.$(awsRegion).amazonaws.com/$(repositoryName):$(imageTag)"
 
-        # 🔐 Inject environment variables
+        # Inject env vars
         $td.containerDefinitions[0].environment = @(
             @{ name="DATABASE_URL"; value="$(DATABASE_URL)" },
             @{ name="SECRET_KEY"; value="$(SECRET_KEY)" },
@@ -101,7 +103,7 @@ stages:
             @{ name="CORS_ORIGINS"; value="$(CORS_ORIGINS)" }
         )
 
-        # 🧹 Clean task definition (remove invalid fields)
+        # Clean JSON
         $cleanTaskDef = @{
             family = $td.family
             networkMode = $td.networkMode
