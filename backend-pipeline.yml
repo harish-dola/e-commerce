@@ -62,6 +62,9 @@ stages:
   - job: Deploy
     steps:
 
+    - script: type new-taskdef.json
+      displayName: "Check Final Task Definition"
+
     # 🔧 Prepare task definition JSON
     - powershell: |
         $image = "$(awsAccountId).dkr.ecr.$(awsRegion).amazonaws.com/$(repositoryName):$(imageTag)"
