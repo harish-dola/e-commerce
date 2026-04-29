@@ -21,7 +21,15 @@
         { "name": "SECRET_KEY", "value": "REPLACE_SECRET" },
         { "name": "ACCESS_TOKEN_EXPIRE_MINUTES", "value": "60" },
         { "name": "CORS_ORIGINS", "value": "*" }
-      ]
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/backend",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
     }
   ]
 }
