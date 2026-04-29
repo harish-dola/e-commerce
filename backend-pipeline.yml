@@ -51,7 +51,7 @@ stages:
         sourceImageTag: '$(imageTag)'
         sourceImageId: '$(imageName):$(imageTag)'
         repositoryName: '$(repositoryName)'
-        pushTag: '$(imageTag)'
+        pushTag: latest
 
 # =========================
 # DEPLOY
