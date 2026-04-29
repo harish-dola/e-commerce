@@ -75,18 +75,22 @@ stages:
 
     # ✅ Fetch task definition (WITH credentials + region)
     - task: AWSCLI@1
-      displayName: "Fetch Task Definition"
+      displayName: "Configure AWS Credentials"
       inputs:
         awsCredentials: 'aws-service-connection'
         regionName: '$(awsRegion)'
-        awsCommand: 'ecs'
-        awsSubCommand: 'describe-task-definition'
-        awsArguments: '--task-definition $(taskDefinitionName) > taskdef.json'
+        awsCommand: 'sts'
+        awsSubCommand: 'get-caller-identity'
 
+    - powershell: |
+        aws ecs describe-task-definition --task-definition $(taskDefinitionName) > taskdef.json
+      displayName: "Fetch Task Definition JSON"
+
+      
     - script: type taskdef.json
       displayName: "Debug Task Definition JSON"
 
-      
+
     # ✅ Modify task definition
     - powershell: |
         $taskDef = Get-Content taskdef.json | ConvertFrom-Json
