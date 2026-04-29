@@ -3,25 +3,135 @@
 # Add steps that build, run tests, deploy, and more:
 # https://aka.ms/yaml
 
+
 trigger:
   branches:
     include:
       - backend/*
 
-
 pool: self-hosted
 
 variables:
-  imageName: 'myapp'
-  imageTag: '$(Build.BuildId)'
+- group: backend   # 👈 IMPORTANT (env vars here)
+
+- name: imageName
+  value: backend
+- name: imageTag
+  value: $(Build.BuildId)
+- name: awsAccountId
+  value: '235110230377'
+- name: awsRegion
+  value: 'us-east-1'
+- name: repositoryName
+  value: 'ecommerce/backend'
+- name: clusterName
+  value: 'ecommerce-dev-cluster'
+- name: serviceName
+  value: 'backend-service'
+- name: taskDefinitionName
+  value: 'backend-task'
 
 stages:
-  - stage:
-    displayName: 'Backend Build'
-    jobs:
-      - job: 
-        displayName: "Docker Build for backend"
-        steps:
-          - script: |
-              cd backend
-              docker build -t $(imageName):$(imageTag) .
+
+# =========================
+# BUILD & PUSH
+# =========================
+- stage: BuildAndPush
+  displayName: 'Backend Build & Push'
+  jobs:
+  - job: Docker_Process
+    steps:
+
+    - script: docker system prune -af
+      displayName: "Clean Docker"
+
+    - script: |
+        cd backend
+        docker build -t $(imageName):$(imageTag) .
+      displayName: "Build Docker Image"
+
+    - task: ECRPushImage@1
+      displayName: "Push to Amazon ECR"
+      inputs:
+        awsCredentials: 'aws-service-connection'
+        regionName: '$(awsRegion)'
+        imageSource: 'imageName'
+        sourceImageName: '$(imageName)'
+        sourceImageTag: '$(imageTag)'
+        sourceImageId: '$(imageName):$(imageTag)'
+        repositoryName: '$(repositoryName)'
+        pushTag: '$(imageTag)'
+
+# =========================
+# DEPLOY
+# =========================
+- stage: DeployToECS
+  displayName: "Deploy Backend to ECS"
+  dependsOn: BuildAndPush
+  condition: succeeded()
+  jobs:
+  - job: Deploy
+    steps:
+
+    # ✅ Fetch task definition (WITH credentials + region)
+    - task: AWSCLI@1
+      name: FetchTaskDef
+      displayName: "Fetch Task Definition"
+      inputs:
+        awsCredentials: 'aws-service-connection'
+        regionName: '$(awsRegion)'
+        awsCommand: 'ecs'
+        awsSubCommand: 'describe-task-definition'
+        awsArguments: '--task-definition $(taskDefinitionName)'
+
+    # ✅ Modify task definition
+    - powershell: |
+        $json = '$(FetchTaskDef.AwsCliOutput)'
+        $taskDef = $json | ConvertFrom-Json
+        $td = $taskDef.taskDefinition
+
+        # 🔥 Update image
+        $td.containerDefinitions[0].image = "$(awsAccountId).dkr.ecr.$(awsRegion).amazonaws.com/$(repositoryName):$(imageTag)"
+
+        # 🔐 Inject environment variables
+        $td.containerDefinitions[0].environment = @(
+            @{ name="DATABASE_URL"; value="$(DATABASE_URL)" },
+            @{ name="SECRET_KEY"; value="$(SECRET_KEY)" },
+            @{ name="ACCESS_TOKEN_EXPIRE_MINUTES"; value="$(ACCESS_TOKEN_EXPIRE_MINUTES)" },
+            @{ name="CORS_ORIGINS"; value="$(CORS_ORIGINS)" }
+        )
+
+        # 🧹 Clean task definition (remove invalid fields)
+        $cleanTaskDef = @{
+            family = $td.family
+            networkMode = $td.networkMode
+            containerDefinitions = $td.containerDefinitions
+            requiresCompatibilities = $td.requiresCompatibilities
+            cpu = $td.cpu
+            memory = $td.memory
+            executionRoleArn = $td.executionRoleArn
+            taskRoleArn = $td.taskRoleArn
+        }
+
+        $cleanTaskDef | ConvertTo-Json -Depth 100 | Out-File new-taskdef.json
+      displayName: "Update Task Definition"
+
+    # ✅ Register new revision
+    - task: AWSCLI@1
+      displayName: "Register Task Definition"
+      inputs:
+        awsCredentials: 'aws-service-connection'
+        regionName: '$(awsRegion)'
+        awsCommand: 'ecs'
+        awsSubCommand: 'register-task-definition'
+        awsArguments: '--cli-input-json file://new-taskdef.json'
+
+    # ✅ Deploy new revision
+    - task: AWSCLI@1
+      displayName: "Update ECS Service"
+      inputs:
+        awsCredentials: 'aws-service-connection'
+        regionName: '$(awsRegion)'
+        awsCommand: 'ecs'
+        awsSubCommand: 'update-service'
+        awsArguments: '--cluster $(clusterName) --service $(serviceName) --force-new-deployment'

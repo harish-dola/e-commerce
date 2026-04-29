@@ -48,7 +48,7 @@ stages:
               sourceImageId: '$(Name):$(imageTag)'
               sourceImageTag: '$(imageTag)'
               repositoryName: 'ecommerce/frontend'
-              pushTag: '$(imageTag)'
+              pushTag: latest
 
           
   - stage: DeployToECS
@@ -59,15 +59,24 @@ stages:
       - job: Update_ECS_Service
         displayName: "Update ECS Service"
         steps:
+          - powershell: |
+              if (!(Get-Command aws -ErrorAction SilentlyContinue)) {
+                  Write-Host "AWS CLI not found, installing..."
+                  $msiPath = "$($env:TEMP)\AWSCLIV2.msi"
+                  Invoke-WebRequest "https://awscli.amazonaws.com/AWSCLIV2.msi" -OutFile $msiPath
+                  Start-Process msiexec.exe -ArgumentList "/i $msiPath /quiet /qn /norestart" -Wait
+              } else {
+                  Write-Host "AWS CLI is already installed."
+              }
+            displayName: 'Install AWS CLI'
+           
           # This task updates the service to pull the new image tag
           - task: AWSCLI@1
-            displayName: "Update ECS Service via CLI"
+            displayName: "Update ECS Service"
             inputs:
-              awsCredentials: 'aws-service-connection'
+              awsCredentials: 'aws-service-connection' # Your exact Service Connection name
               regionName: 'us-east-1'
               awsCommand: 'ecs'
               awsSubCommand: 'update-service'
-              addCustomArgs: |
-                --cluster production-cluster \
-                --service my-app-service \
-                --force-new-deployment
+              # Use a single line for arguments to prevent Windows parsing errors
+              awsArguments: '--cluster ecommerce-dev-cluster --service my-app-service --force-new-deployment'

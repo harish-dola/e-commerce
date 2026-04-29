@@ -35,3 +35,10 @@ module "sm" {
   db_endpoint         = module.rds.db_instance_endpoint
   ecr_repository_uris = module.ecr.ecr_repository_urls
 }
+
+module "ecs" {
+  source      = "../../modules/ecs"
+  environment = "dev"
+  app_image   = module.ecr.ecr_repository_urls["frontend"] # Use the frontend      
+   
+}
