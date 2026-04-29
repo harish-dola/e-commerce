@@ -22,8 +22,6 @@ variables:
   value: 'ecommerce-dev-cluster'
 - name: serviceName
   value: 'my-backend-service'
-- name: taskDefinitionName
-  value: 'backend-task'
 
 stages:
 
@@ -34,13 +32,14 @@ stages:
   jobs:
   - job: Docker_Process
     steps:
+
     - script: docker system prune -af
       displayName: Clean Docker
 
     - script: |
         cd backend
         docker build -t $(imageName):$(imageTag) .
-      displayName: Build Image
+      displayName: Build Docker Image
 
     - task: ECRPushImage@1
       displayName: Push to ECR
@@ -63,64 +62,33 @@ stages:
   - job: Deploy
     steps:
 
-    # ✅ Fetch task definition safely
-    - task: AWSCLI@1
-      name: FetchTaskDef
-      displayName: Fetch Task Definition
-      inputs:
-        awsCredentials: 'aws-service-connection'
-        regionName: '$(awsRegion)'
-        awsCommand: ecs
-        awsSubCommand: describe-task-definition
-        awsArguments: '--task-definition $(taskDefinitionName) --query taskDefinition'
-
-    # ✅ Modify JSON safely
+    # 🔧 Prepare task definition JSON
     - powershell: |
-        $json = '$(FetchTaskDef.AwsCliOutput)'
-        $td = $json | ConvertFrom-Json
+        $image = "$(awsAccountId).dkr.ecr.$(awsRegion).amazonaws.com/$(repositoryName):$(imageTag)"
 
-        # Update image
-        $td.containerDefinitions[0].image = "$(awsAccountId).dkr.ecr.$(awsRegion).amazonaws.com/$(repositoryName):$(imageTag)"
+        (Get-Content backend/taskdef.json) `
+          -replace "REPLACE_IMAGE", $image `
+          -replace "REPLACE_DB", "$(DATABASE_URL)" `
+          -replace "REPLACE_SECRET", "$(SECRET_KEY)" |
+          Set-Content new-taskdef.json
+      displayName: "Prepare Task Definition"
 
-        # Inject env vars
-        $td.containerDefinitions[0].environment = @(
-          @{ name="DATABASE_URL"; value="$(DATABASE_URL)" },
-          @{ name="SECRET_KEY"; value="$(SECRET_KEY)" },
-          @{ name="ACCESS_TOKEN_EXPIRE_MINUTES"; value="$(ACCESS_TOKEN_EXPIRE_MINUTES)" },
-          @{ name="CORS_ORIGINS"; value="$(CORS_ORIGINS)" }
-        )
-
-        # Clean object (AWS requires minimal fields)
-        $clean = @{
-          family = $td.family
-          networkMode = $td.networkMode
-          containerDefinitions = $td.containerDefinitions
-          requiresCompatibilities = $td.requiresCompatibilities
-          cpu = $td.cpu
-          memory = $td.memory
-          executionRoleArn = $td.executionRoleArn
-          taskRoleArn = $td.taskRoleArn
-        }
-
-        $clean | ConvertTo-Json -Depth 100 | Out-File new-taskdef.json
-      displayName: Update Task Definition
-
-    # ✅ Register new revision
+    # 🚀 Register new revision
     - task: AWSCLI@1
       displayName: Register Task Definition
       inputs:
         awsCredentials: 'aws-service-connection'
         regionName: '$(awsRegion)'
-        awsCommand: ecs
-        awsSubCommand: register-task-definition
+        awsCommand: 'ecs'
+        awsSubCommand: 'register-task-definition'
         awsArguments: '--cli-input-json file://new-taskdef.json'
 
-    # ✅ Deploy
+    # 🔥 Deploy latest revision
     - task: AWSCLI@1
       displayName: Update ECS Service
       inputs:
         awsCredentials: 'aws-service-connection'
         regionName: '$(awsRegion)'
-        awsCommand: ecs
-        awsSubCommand: update-service
+        awsCommand: 'ecs'
+        awsSubCommand: 'update-service'
         awsArguments: '--cluster $(clusterName) --service $(serviceName) --force-new-deployment'
