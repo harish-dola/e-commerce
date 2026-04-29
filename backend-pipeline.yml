@@ -83,7 +83,9 @@ stages:
         awsSubCommand: 'get-caller-identity'
 
     - powershell: |
-        aws ecs describe-task-definition --task-definition $(taskDefinitionName) > taskdef.json
+        aws ecs describe-task-definition `
+          --task-definition $(taskDefinitionName) `
+          --region $(awsRegion) > taskdef.json
       displayName: "Fetch Task Definition JSON"
 
       
