@@ -1,0 +1,27 @@
+{
+  "family": "backend-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::235110230377:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "REPLACE_IMAGE",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "hostPort": 80
+        }
+      ],
+      "environment": [
+        { "name": "DATABASE_URL", "value": "REPLACE_DB" },
+        { "name": "SECRET_KEY", "value": "REPLACE_SECRET" },
+        { "name": "ACCESS_TOKEN_EXPIRE_MINUTES", "value": "60" },
+        { "name": "CORS_ORIGINS", "value": "*" }
+      ]
+    }
+  ]
+}
