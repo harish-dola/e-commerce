@@ -27,7 +27,7 @@ variables:
 - name: clusterName
   value: 'ecommerce-dev-cluster'
 - name: serviceName
-  value: 'backend-service'
+  value: 'my-backend-service'
 - name: taskDefinitionName
   value: 'backend-task'
 
