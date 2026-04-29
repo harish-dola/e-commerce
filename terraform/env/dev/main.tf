@@ -40,5 +40,7 @@ module "ecs" {
   source      = "../../modules/ecs"
   environment = "dev"
   app_image   = module.ecr.ecr_repository_urls["frontend"] # Use the frontend      
-   
+  backend_image = module.ecr.ecr_repository_urls["backend"] # Use the backend
+  database_url = var.database_url
+  secret_key = var.secret_key
 }

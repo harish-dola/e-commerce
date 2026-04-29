@@ -31,12 +31,57 @@ resource "aws_ecs_task_definition" "app" {
   ])
 }
 
+resource "aws_ecs_task_definition" "backend" {
+  family                   = "backend-task"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  task_role_arn = aws_iam_role.ecs_task_execution_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "backend"
+      image     = var.backend_image
+      essential = true
+
+      portMappings = [{
+        containerPort = 80
+        hostPort      = 80
+      }]
+
+      environment = [
+        { name = "DATABASE_URL", value = var.database_url },
+        { name = "SECRET_KEY", value = var.secret_key },
+        { name = "ACCESS_TOKEN_EXPIRE_MINUTES", value = "60" },
+        { name = "CORS_ORIGINS", value = "*" }
+      ]
+    }
+  ])
+}
+
 resource "aws_ecs_service" "main" {
   name            = "my-app-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
   desired_count   = 2
   launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = ["subnet-0d0fb14aeba3d8152", "subnet-028503900ad49c9f7"] # Use your private subnets
+    security_groups  = ["sg-045dff81b6e4a5daa"] # Use your security group that allows necessary traffic
+    assign_public_ip = true # Set to false if using a NAT Gateway in private subnets
+  }
+}
+
+resource "aws_ecs_service" "backend" {
+  name            = "my-backend-service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.backend.arn
+  desired_count   = 2
+  launch_type     = "FARGATE"
+  
 
   network_configuration {
     subnets          = ["subnet-0d0fb14aeba3d8152", "subnet-028503900ad49c9f7"] # Use your private subnets
