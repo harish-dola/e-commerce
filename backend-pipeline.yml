@@ -64,7 +64,7 @@ stages:
         $targetPath = "taskdef.json"
         
         # 1. Define replacement values
-        $image = "$(awsAccountId).dkr.ecr.$(awsRegion).amazonaws.com/$(repositoryName):$(imageTag)"
+        $image = "$(awsAccountId).dkr.ecr.$(awsRegion).amazonaws.com/$(repositoryName):latest"
         $dbUrl = '$(DATABASE_URL)'
         $secret = '$(SECRET_KEY)'
 
