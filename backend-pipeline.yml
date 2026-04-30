@@ -84,7 +84,7 @@ stages:
         regionName: '$(awsRegion)'
         awsCommand: 'ecs'
         awsSubCommand: 'register-task-definition'
-        awsArguments: '--cli-input-json file://new-taskdef.json'
+        awsArguments: '--cli-input-json file://taskdef.json'
 
     # 🔥 Deploy latest revision
     - task: AWSCLI@1
