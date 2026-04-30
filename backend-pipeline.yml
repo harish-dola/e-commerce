@@ -61,20 +61,26 @@ stages:
     # 1. Generate the Task Definition first
     - powershell: |
         $sourcePath = "backend/taskdef.json"
-        if (Test-Path $sourcePath) {
-            $image = "$(awsAccountId).dkr.ecr.$(awsRegion).amazonaws.com/$(repositoryName):$(imageTag)"
-            
-            $content = Get-Content $sourcePath
-            $content = $content -replace "REPLACE_IMAGE", $image
-            $content = $content -replace "REPLACE_DB", "$(DATABASE_URL)"
-            $content = $content -replace "REPLACE_SECRET", "$(SECRET_KEY)"
-            
-            $content | Set-Content -Path "taskdef.json" -Encoding UTF8
-            Write-Host "##[section]Created taskdef.json successfully."
-        } else {
-            Write-Error "Could not find source: $sourcePath"
-            exit 1
-        }
+        $targetPath = "taskdef.json"
+        
+        # 1. Define replacement values
+        $image = "$(awsAccountId).dkr.ecr.$(awsRegion).amazonaws.com/$(repositoryName):$(imageTag)"
+        $dbUrl = '$(DATABASE_URL)'
+        $secret = '$(SECRET_KEY)'
+
+        # 2. Read raw text
+        $content = Get-Content $sourcePath -Raw
+
+        # 3. Use .Replace() (Literal string replacement, safer than Regex -replace)
+        $content = $content.Replace("REPLACE_IMAGE", $image)
+        $content = $content.Replace("REPLACE_DB", $dbUrl)
+        $content = $content.Replace("REPLACE_SECRET", $secret)
+
+        # 4. Save as UTF8 without BOM (Requirement for many CLI parsers)
+        $Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText((Resolve-Path .).Path + "\$targetPath", $content, $Utf8NoBomEncoding)
+        
+        Write-Host "##[section]Successfully generated taskdef.json"
       displayName: "Prepare Task Definition"
 
     # 2. Verify the file exists and check contents
