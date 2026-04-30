@@ -62,7 +62,7 @@ stages:
   - job: Deploy
     steps:
 
-    - script: type new-taskdef.json
+    - script: type taskdef.json
       displayName: "Check Final Task Definition"
 
     # 🔧 Prepare task definition JSON
@@ -73,7 +73,7 @@ stages:
           -replace "REPLACE_IMAGE", $image `
           -replace "REPLACE_DB", "$(DATABASE_URL)" `
           -replace "REPLACE_SECRET", "$(SECRET_KEY)" |
-          Set-Content new-taskdef.json
+          Set-Content taskdef.json
       displayName: "Prepare Task Definition"
 
     # 🚀 Register new revision
