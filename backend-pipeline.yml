@@ -33,7 +33,7 @@ stages:
   - job: Docker_Process
     steps:
 
-    - script: docker system prune -af
+    - script: docker system prune -f
       displayName: Clean Docker
 
     - script: |
@@ -66,15 +66,19 @@ stages:
       displayName: "Check Final Task Definition"
 
     # 🔧 Prepare task definition JSON
+    # 1. First, create the file in the root
     - powershell: |
         $image = "$(awsAccountId).dkr.ecr.$(awsRegion).amazonaws.com/$(repositoryName):$(imageTag)"
-
         (Get-Content backend/taskdef.json) `
           -replace "REPLACE_IMAGE", $image `
           -replace "REPLACE_DB", "$(DATABASE_URL)" `
           -replace "REPLACE_SECRET", "$(SECRET_KEY)" |
           Set-Content taskdef.json
       displayName: "Prepare Task Definition"
+
+    # 2. Then, verify it
+    - script: type taskdef.json
+      displayName: "Check Final Task Definition"
 
     # 🚀 Register new revision
     - task: AWSCLI@1
