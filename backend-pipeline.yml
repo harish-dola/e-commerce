@@ -7,7 +7,6 @@ pool: self-hosted
 
 variables:
 - group: backend
-
 - name: imageName
   value: backend
 - name: imageTag
@@ -24,7 +23,6 @@ variables:
   value: 'my-backend-service'
 
 stages:
-
 # =========================
 # BUILD & PUSH
 # =========================
@@ -32,17 +30,16 @@ stages:
   jobs:
   - job: Docker_Process
     steps:
-
     - script: docker system prune -f
-      displayName: Clean Docker
+      displayName: "Clean Docker (Dangling Only)"
 
     - script: |
         cd backend
         docker build -t $(imageName):$(imageTag) .
-      displayName: Build Docker Image
+      displayName: "Build Docker Image"
 
     - task: ECRPushImage@1
-      displayName: Push to ECR
+      displayName: "Push to ECR"
       inputs:
         awsCredentials: 'aws-service-connection'
         regionName: '$(awsRegion)'
@@ -61,28 +58,38 @@ stages:
   jobs:
   - job: Deploy
     steps:
-
-    - script: type taskdef.json
-      displayName: "Check Final Task Definition"
-
-    # 🔧 Prepare task definition JSON
-    # 1. First, create the file in the root
+    # 1. Generate the Task Definition first
     - powershell: |
-        $image = "$(awsAccountId).dkr.ecr.$(awsRegion).amazonaws.com/$(repositoryName):$(imageTag)"
-        (Get-Content backend/taskdef.json) `
-          -replace "REPLACE_IMAGE", $image `
-          -replace "REPLACE_DB", "$(DATABASE_URL)" `
-          -replace "REPLACE_SECRET", "$(SECRET_KEY)" |
-          Set-Content taskdef.json
+        $sourcePath = "backend/taskdef.json"
+        if (Test-Path $sourcePath) {
+            $image = "$(awsAccountId).dkr.ecr.$(awsRegion).amazonaws.com/$(repositoryName):$(imageTag)"
+            
+            $content = Get-Content $sourcePath
+            $content = $content -replace "REPLACE_IMAGE", $image
+            $content = $content -replace "REPLACE_DB", "$(DATABASE_URL)"
+            $content = $content -replace "REPLACE_SECRET", "$(SECRET_KEY)"
+            
+            $content | Set-Content -Path "taskdef.json" -Encoding UTF8
+            Write-Host "##[section]Created taskdef.json successfully."
+        } else {
+            Write-Error "Could not find source: $sourcePath"
+            exit 1
+        }
       displayName: "Prepare Task Definition"
 
-    # 2. Then, verify it
-    - script: type taskdef.json
+    # 2. Verify the file exists and check contents
+    - script: |
+        if exist taskdef.json (
+            type taskdef.json
+        ) else (
+            echo taskdef.json not found!
+            exit 1
+        )
       displayName: "Check Final Task Definition"
 
-    # 🚀 Register new revision
+    # 3. Register new revision
     - task: AWSCLI@1
-      displayName: Register Task Definition
+      displayName: "Register Task Definition"
       inputs:
         awsCredentials: 'aws-service-connection'
         regionName: '$(awsRegion)'
@@ -90,9 +97,9 @@ stages:
         awsSubCommand: 'register-task-definition'
         awsArguments: '--cli-input-json file://taskdef.json'
 
-    # 🔥 Deploy latest revision
+    # 4. Update ECS Service
     - task: AWSCLI@1
-      displayName: Update ECS Service
+      displayName: "Update ECS Service"
       inputs:
         awsCredentials: 'aws-service-connection'
         regionName: '$(awsRegion)'
