@@ -39,40 +39,26 @@ stages:
             backendAWSKey: 'ecommerce/terraform.tfstate'
             
 
-        # # 2. Generate Plan
-        # - task: TerraformTaskV4@4
-        #   displayName: 'Terraform Plan'
-        #   inputs:
-        #     provider: 'aws'
-        #     command: 'plan'
-        #     workingDirectory: '$(working_dir)'
-        #     environmentServiceNameAWS: 'aws-terraform-connection'
-        #     commandOptions: >
-        #       -var="database_url=$(DATABASE_URL)"
-        #       -var="secret_key=$(SECRET_KEY)"
-        #       -var="db_password=$(DB_PASSWORD)"
-
-
-        # # 3. Apply Changes
-        # - task: TerraformTaskV4@4
-        #   displayName: 'Terraform Apply'
-        #   inputs:
-        #     provider: 'aws'
-        #     command: 'apply'
-        #     workingDirectory: '$(working_dir)'
-        #     environmentServiceNameAWS: 'aws-terraform-connection'
-        #     commandOptions: >
-        #       -auto-approve
-        #       -var="database_url=$(DATABASE_URL)"
-        #       -var="secret_key=$(SECRET_KEY)"
-        #       -var="db_password=$(DB_PASSWORD)"
-
-        # 4. Destroy Plan
+        # 2. Generate Plan
         - task: TerraformTaskV4@4
-          displayName: 'Terraform Destroy'
+          displayName: 'Terraform Plan'
           inputs:
             provider: 'aws'
-            command: 'destroy'
+            command: 'plan'
+            workingDirectory: '$(working_dir)'
+            environmentServiceNameAWS: 'aws-terraform-connection'
+            commandOptions: >
+              -var="database_url=$(DATABASE_URL)"
+              -var="secret_key=$(SECRET_KEY)"
+              -var="db_password=$(DB_PASSWORD)"
+
+
+        # 3. Apply Changes
+        - task: TerraformTaskV4@4
+          displayName: 'Terraform Apply'
+          inputs:
+            provider: 'aws'
+            command: 'apply'
             workingDirectory: '$(working_dir)'
             environmentServiceNameAWS: 'aws-terraform-connection'
             commandOptions: >
@@ -80,3 +66,17 @@ stages:
               -var="database_url=$(DATABASE_URL)"
               -var="secret_key=$(SECRET_KEY)"
               -var="db_password=$(DB_PASSWORD)"
+
+        # # 4. Destroy Plan
+        # - task: TerraformTaskV4@4
+        #   displayName: 'Terraform Destroy'
+        #   inputs:
+        #     provider: 'aws'
+        #     command: 'destroy'
+        #     workingDirectory: '$(working_dir)'
+        #     environmentServiceNameAWS: 'aws-terraform-connection'
+        #     commandOptions: >
+        #       -auto-approve
+        #       -var="database_url=$(DATABASE_URL)"
+        #       -var="secret_key=$(SECRET_KEY)"
+        #       -var="db_password=$(DB_PASSWORD)"
