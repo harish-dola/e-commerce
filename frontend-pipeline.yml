@@ -20,7 +20,7 @@ stages:
           # 1. Build the image locally on the agent
           - script: |
               cd frontend
-              docker build -t $(Name):$(imageTag) .
+              docker build -t $(Name):$(imageTag) --build-arg VITE_API_BASE_URL=http://52.90.78.145/api .
             displayName: "Build Docker Image"
 
           # 2. Push to ECR using the AWS Task
