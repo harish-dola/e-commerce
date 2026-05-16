@@ -1,0 +1,23 @@
+{
+  "family": "my-app-task",
+  "executionRoleArn": "arn:aws:iam::235110230377:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "256",
+  "memory": "512",
+  "containerDefinitions": [
+    {
+      "name": "my-app",
+      "image": "235110230377.dkr.ecr.us-east-1.amazonaws.com/ecommerce/frontend:IMAGE_TAG",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "protocol": "tcp"
+        }
+      ]
+    }
+  ]
+}
