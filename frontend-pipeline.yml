@@ -54,7 +54,7 @@ stages:
               sourceImageId: '$(Name):$(imageTag)'
               sourceImageTag: '$(imageTag)'
               repositoryName: 'ecommerce/frontend'
-              pushTag: latest
+              pushTag: '$(imageTag)'
 
           
   - stage: DeployToECS
@@ -75,7 +75,26 @@ stages:
                   Write-Host "AWS CLI is already installed."
               }
             displayName: 'Install AWS CLI'
-           
+
+          - powershell: |
+              (Get-Content frontend/task-definition.json) `
+                -replace 'IMAGE_TAG', '$(Build.BuildId)' `
+                | Set-Content frontend/task-definition-rendered.json
+
+            displayName: "Render ECS Task Definition"
+
+          - task: AWSCLI@1
+            displayName: "Register ECS Task Definition"
+
+            inputs:
+              awsCredentials: 'aws-service-connection'
+              regionName: 'us-east-1'
+
+              awsCommand: 'ecs'
+              awsSubCommand: 'register-task-definition'
+
+              awsArguments: '--cli-input-json file://frontend/task-definition-rendered.json'
+                  
           # This task updates the service to pull the new image tag
           - task: AWSCLI@1
             displayName: "Update ECS Service"
@@ -85,4 +104,4 @@ stages:
               awsCommand: 'ecs'
               awsSubCommand: 'update-service'
               # Use a single line for arguments to prevent Windows parsing errors
-              awsArguments: '--cluster ecommerce-dev-cluster --service my-app-service --force-new-deployment'
+              awsArguments: '--cluster ecommerce-dev-cluster --service my-app-service --task-definition my-app-task'
