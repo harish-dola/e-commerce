@@ -6,9 +6,15 @@ trigger:
 pool: self-hosted
 
 variables:
+  - group: terraform-secrets
+  - name: Name
+    value: frontend
+  - name: imageTag
+    value: $(Build.BuildId)
+
   # Replace with your actual ECR Repository Name
-  Name: 'frontend' 
-  imageTag: '$(Build.BuildId)'
+  
+  
 
 stages:
   - stage: BuildAndPush
@@ -20,7 +26,7 @@ stages:
           # 1. Build the image locally on the agent
           - script: |
               cd frontend
-              docker build -t $(Name):$(imageTag) --build-arg VITE_API_BASE_URL=http://52.90.78.145/api .
+              docker build -t $(Name):$(imageTag) --build-arg VITE_API_BASE_URL=VITE_API_BASE_URL_SECRET .
             displayName: "Build Docker Image"
 
           # 2. Push to ECR using the AWS Task
